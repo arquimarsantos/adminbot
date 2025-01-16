@@ -20,10 +20,7 @@ import {
 import {
     getConnectionMethod,
     getGroupAdmins,
-    logAction,
-    downloadMedia,
-    checkMedia,
-    analyzeVideo
+    logAction
 } from "./src/func.js";
 import { Boom } from "@hapi/boom";
 import { translateLang, pt } from "./src/idiomas/total-idiomas.js";
@@ -35,7 +32,6 @@ import path from "path";
 const antipv = JSON.parse(fs.readFileSync("./src/db/antipv.json"));
 const antilink = JSON.parse(fs.readFileSync("./src/db/antilink.json"));
 const antilinkgroup = JSON.parse(fs.readFileSync("./src/db/antilink-grupo.json"));
-const antinsfw = JSON.parse(fs.readFileSync("./src/db/antinsfw.json"));
 const adminlogs = JSON.parse(fs.readFileSync('./src/db/admin-logs.json'));
 const adminlogsinfo = JSON.parse(fs.readFileSync('./src/db/admin-info.json'));
 const autoaccept = JSON.parse(fs.readFileSync('./src/db/auto-aceitar.json'));
@@ -281,7 +277,6 @@ async function connect() {
             const isAntiPv = (antipv.antiPrivate == true) ? true : false;
             const isAntiLink = isGroup ? antilink.includes(from) : false;
             const isAntiLinkGroup = isGroup ? antilinkgroup.includes(from) : false;
-            const isAntiNSFW = isGroup ? antinsfw.includes(from) : false;
             const isAdminLogs = adminlogs.includes(from);
             const isAutoAccept = autoaccept.includes(from);
             const isCountMessages = count.includes(from);
@@ -357,26 +352,6 @@ async function connect() {
                         }
                     } else {
                         errorReply(pt['antiLinkGrupoMsg7']());
-                    }
-                    break;
-                case 'antinsfw':
-                    if (isAntiPv && !isGroup) return;
-                    if (!isGroup) return;
-                    if (!isBotAdmins) return;
-                    if (!isGroupAdmins) return;
-                    if (args.length < 1) return;
-                    if (Number(args[0]) === 1) {
-                        if (isAntiNSFW) return errorReply(pt['antiNSFWMsg2']());
-                        antinsfw.push(from);
-                        fs.writeFileSync('./src/db/antinsfw.json', JSON.stringify(antinsfw));
-                        reply(pt['antiNSFWMsg3']());
-                    } else if (Number(args[0]) === 0) {
-                        if (!isAntiNSFW) return errorReply(pt['antiNSFWMsg4']());
-                        antinsfw.splice(from, 1);
-                        fs.writeFileSync('./src/db/antinsfw.json', JSON.stringify(antinsfw));
-                        bot.sendMessage(from, { text: pt['antiNSFWMsg5']() });
-                    } else {
-                        reply(pt['antiNSFWMsg6']());
                     }
                     break;
                 case 'adminlogs':
@@ -486,77 +461,6 @@ async function connect() {
                                 let user = `${sender.split("@")[0]}@s.whatsapp.net`;
                                 bot.sendMessage(from, { delete: { remoteJid: from, fromMe: false, id: info.key.id, participant: [user] } });
                             }
-                        }
-                    }
-                    if (isGroup && isAntiNSFW && !isGroupAdmins) {
-                        if (isQuotedViewOnce) {
-                            try {
-                                const quotedMessage = info.message.extendedTextMessage.contextInfo.quotedMessage;
-                                if (!quotedMessage) {
-                                    return;
-                                }
-                                const mediaMessage =
-                                    quotedMessage.viewOnceMessage?.message ||
-                                    quotedMessage.viewOnceMessageV2?.message ||
-                                    quotedMessage.viewOnceMessageV2Extension?.message;
-                                if (!mediaMessage) {
-                                    console.log(pt['consoleMsg9']());
-                                    return;
-                                }
-                                console.log(pt['consoleMsg11']());
-                                const buffer = await downloadMediaMessage(
-                                    { message: mediaMessage, key: key },
-                                    "buffer",
-                                    {},
-                                    { logger }
-                                );
-                                if (buffer) {
-                                    const filePath = path.resolve(
-                                        "./src/tmp",
-                                        `${Math.floor(Math.random() * 10000)}.${mediaMessage.imageMessage ? "jpeg" : "mp4"}`
-                                    );
-                                    fs.writeFileSync(filePath, buffer);
-                                    //console.log(`Mídia salva com sucesso em: ${filePath}`);
-                                    const quotedMessageId = info.message.extendedTextMessage.contextInfo.stanzaId;
-                                    if (mediaMessage.imageMessage) {
-                                        const { isNSFW } = await checkMedia(filePath);
-                                        if (isNSFW) {
-                                            if (quotedMessageId) {
-                                                let user = `${sender.split("@")[0]}@s.whatsapp.net`;
-                                                bot.sendMessage(from, { delete: { remoteJid: from, fromMe: false, id: quotedMessageId, participant: [user] } });
-                                            }
-                                        }
-                                        fs.unlinkSync(filePath);
-                                    } else if (mediaMessage.videoMessage) {
-                                        const nsfwResults = await analyzeVideo(filePath);
-                                        if (nsfwResults.length > 0) {
-                                            if (quotedMessageId) {
-                                                let user = `${sender.split("@")[0]}@s.whatsapp.net`;
-                                                bot.sendMessage(from, { delete: { remoteJid: from, fromMe: false, id: quotedMessageId, participant: [user] } });
-                                            }
-                                        }
-                                        fs.unlinkSync(filePath);
-                                    }
-                                }
-                            } catch (e) {
-                                console.log(e);
-                            }
-                        } else if (isImage || isSticker) {
-                            let media = await downloadMedia(info, `${Math.floor(Math.random() * 10000)}`);
-                            const { isNSFW } = await checkMedia(media);
-                            if (isNSFW) {
-                                let user = `${sender.split("@")[0]}@s.whatsapp.net`;
-                                bot.sendMessage(from, { delete: { remoteJid: from, fromMe: false, id: info.key.id, participant: [user] } });
-                            }
-                            fs.unlinkSync(media);
-                        } else if (isVideo) {
-                            let media = await downloadMedia(info, `${Math.floor(Math.random() * 10000)}`);
-                            const nsfwResults = await analyzeVideo(media);
-                            if (nsfwResults.length > 0) {
-                                let user = `${sender.split("@")[0]}@s.whatsapp.net`;
-                                bot.sendMessage(from, { delete: { remoteJid: from, fromMe: false, id: info.key.id, participant: [user] } });
-                            }
-                            fs.unlinkSync(media);
                         }
                     }
             }
