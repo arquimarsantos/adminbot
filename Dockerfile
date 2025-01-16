@@ -11,8 +11,8 @@ RUN apt-get update && \
 
 COPY package.json .
 
-#RUN npm install
+RUN npm install
 
 COPY . .
 
-#CMD ["pm2-runtime", "index.js"]
+CMD ["pm2-runtime", "index.js"]
