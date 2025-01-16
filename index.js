@@ -478,6 +478,7 @@ async function connect() {
                         if (!isGroupAdmins) {
                             let user = `${sender.split("@")[0]}@s.whatsapp.net`;
                             bot.sendMessage(from, { delete: { remoteJid: from, fromMe: false, id: info.key.id, participant: [user] } });
+			    await bot.groupParticipantsUpdate(from, [user], 'remove');
                         }
                     } else if (isGroup && isAntiLink) {
                         if (budy.includes("https://") || budy.includes("http://") || budy.includes(".com")) {
