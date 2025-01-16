@@ -15,4 +15,4 @@ RUN npm install
 
 COPY . .
 
-CMD ["pm2-runtime", "."]
+CMD ["pm2-runtime", "index.js"]
