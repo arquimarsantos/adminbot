@@ -15,4 +15,6 @@ RUN npm install
 
 COPY . .
 
-CMD ["pm2-runtime", "index.js"]
+EXPOSE 8000
+
+CMD ["pm2-runtime", "ecosystem.config.js"]
