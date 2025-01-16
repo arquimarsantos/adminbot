@@ -2,21 +2,15 @@ import { downloadContentFromMessage, downloadMediaMessage } from "@whiskeysocket
 import { writeFile } from "fs/promises";
 import { pt } from "./idiomas/total-idiomas.js";
 import { connectionMethod, timeZone } from "./config.js";
-import { createCanvas, loadImage } from "canvas";
 import pino from "pino";
-import sharp from "sharp";
 import fs from "fs";
-import ffmpeg from 'fluent-ffmpeg';
 import clc from "cli-color";
 import axios from "axios";
 import path from "path";
-import * as tf from "@tensorflow/tfjs";
-import * as nsfw from 'nsfwjs';
 import bodyForm from "form-data";
 import mimetype from "mime-types";
 const logger = pino({ level: 'silent' });
 const tempfolder = path.join('./src/tmp');
-tf.enableProdMode();
 
 const colorMap = {
     black: clc.black,
@@ -187,76 +181,6 @@ async function downloadViewOnce(baileysMessage, fileName) {
         console.log(e);
     }
 }
-
-async function checkMedia(mediaPath) {
-    const model = await nsfw.load("MobileNetV2");
-    let imageBuffer;
-    try {
-        if (mediaPath.endsWith('.webp')) {
-            imageBuffer = await sharp(mediaPath).toFormat('jpeg').toBuffer();
-        } else {
-            imageBuffer = fs.readFileSync(mediaPath);
-        }
-        const img = await loadImage(imageBuffer);
-        const canvas = createCanvas(img.width, img.height);
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        const predictions = await model.classify(canvas);
-        const isNSFW = predictions.some(prediction => 
-            (prediction.className === 'Porn' || prediction.className === 'Hentai' || prediction.className === 'Sexy') && prediction.probability > 0.8
-        );
-        return {
-            isNSFW,
-            predictions,
-        };
-    } catch (e) {
-        console.log(e);
-        return { isNSFW: false, predictions: [] };
-    }
-}
-
-async function analyzeVideo(videoPath) {
-    const uniqueTempFolder = path.join(tempfolder, `video-${Date.now()}`);
-    if (!fs.existsSync(uniqueTempFolder)) fs.mkdirSync(uniqueTempFolder);
-    return new Promise((resolve, reject) => {
-        ffmpeg(videoPath)
-            .output(path.join(uniqueTempFolder, 'frame-%d.jpg'))
-            //.outputOptions(['-vf fps=1'])
-            .outputOptions(['-frames:v 20'])
-            .on('end', async () => {
-                const files = fs.readdirSync(uniqueTempFolder);
-                const imageFiles = files.filter(file => file.endsWith('.jpg') || file.endsWith('.jpeg'));
-                let nsfwResult = null;
-                for (const file of imageFiles) {
-                    const filePath = path.join(uniqueTempFolder, file);
-                    try {
-                        const { isNSFW, predictions } = await checkMedia(filePath);
-                        fs.rmSync(filePath);
-                        if (isNSFW) {
-                            nsfwResult = { frame: file, predictions };
-                            break;
-                        }
-                    } catch (err) {
-                        fs.rmSync(filePath);
-                        reject(err);
-                        return;
-                    }
-                }
-                const remainingFiles = fs.readdirSync(uniqueTempFolder);
-                remainingFiles.forEach(file => fs.rmSync(path.join(uniqueTempFolder, file)));
-                fs.rmdirSync(uniqueTempFolder);
-                resolve(nsfwResult ? [nsfwResult] : []);
-            })
-            .on('error', (err) => {
-                const files = fs.readdirSync(uniqueTempFolder);
-                files.forEach(file => fs.rmSync(path.join(uniqueTempFolder, file)));
-                fs.rmdirSync(uniqueTempFolder);
-                reject(err);
-            })
-            .run();
-    });
-}
-
 export {
     tempfolder,
     color,
@@ -268,7 +192,5 @@ export {
     TelegraPh,
     UploadFileUgu,
     downloadMedia,
-    downloadViewOnce,
-    checkMedia,
-    analyzeVideo
+    downloadViewOnce
 };
