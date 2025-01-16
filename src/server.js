@@ -1,6 +1,11 @@
 const express = require("express");
 const app = express();
-app.get('/', function (res) {
-    res.send('online!');
+
+app.get("/", function (req, res) {
+    res.status(200).send("online!");
 });
-app.listen(8000);
+
+const PORT = process.env.PORT || 8000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
