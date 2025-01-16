@@ -16,7 +16,7 @@ const connectionMethod = 'pairing';
 // definindo uma timezone válida a data e horário do bot vai ser alterado de acordo com o local
 const timeZone = 'America/Sao_Paulo';
 const ownerNumber = ['557197108211'];
-const prefix = '.';
+const prefix = '!';
 // salvamento de dados localmente
 const dataStoreInMemoryLocally = false;
 // crie uma pasta de acordo com o nome do local de diretório do salvamento de dados ou irá crashar
